@@ -7,6 +7,9 @@ Ships with a ready dataset for **Vietnamese economics, finance and investing** (
 channels (23 core, 9 maybe), 117 screening verdicts, the search terms that worked, and the 74 viral videos of the last
 30 days as of 2026-11-10. Ask your agent "what's viral in Vietnamese finance TikTok?" and it answers from that data, then refreshes it.
 
+Also ships `topics/vn-fun-knowledge/`: Vietnamese fun-facts, science, mystery and history explainers (the "Vui Vẻ"
+style): 17 followed channels, 59 verdicts and 176 viral videos as of 2026-11-10.
+
 ## How it works
 
 | Step | Command | Needs a browser? | What it does |

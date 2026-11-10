@@ -1,6 +1,6 @@
 ---
 name: tiktok-viral-content
-description: Use when someone wants viral TikTok videos or source channels for a niche ("what's viral in finance TikTok", "tìm kênh/video viral về kinh tế", "find channels like X", "list videos to remake"), wants transcripts of TikTok videos, or wants to know why a set of TikTok videos went viral. Works for any topic; ships with Vietnamese economics, finance and investing data.
+description: Use when someone wants viral TikTok videos or source channels for a niche ("what's viral in finance TikTok", "tìm kênh/video viral về kinh tế", "find channels like X", "list videos to remake"), wants transcripts of TikTok videos, or wants to know why a set of TikTok videos went viral. Works for any topic; ships with Vietnamese data for economics/finance/investing and for fun facts/science/history explainers.
 ---
 
 # tiktok-viral-content
@@ -16,7 +16,7 @@ fails on local edits, show `git status` and ask before stashing or discarding an
 ## 0. Answer from data first
 
 Run `uv run tiktok-viral topics`. If a topic covers the request (e.g. `vn-economics` for Vietnamese economics,
-business, personal finance or investing), answer from it before fetching anything:
+business, personal finance or investing; `vn-fun-knowledge` for fun facts, science curiosities, mysteries, history), answer from it before fetching anything:
 
 - recent viral videos: the newest `topics/<t>/viral/*.csv`, or the newest `topics/<t>/runs/*-viral/viral.csv`
 - channels: `topics/<t>/channels.csv` (tier `watch` = core, `maybe` = borderline), with the reason for each
