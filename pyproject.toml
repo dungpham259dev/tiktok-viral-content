@@ -1,0 +1,41 @@
+[project]
+name = "tiktok-viral-content"
+version = "0.1.0"
+description = "Find TikTok channels in any niche, score their recent videos for virality, and pull transcripts for AI analysis."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "yt-dlp>=2026.10.26",
+]
+
+[project.optional-dependencies]
+discover = [
+    "playwright>=1.50",
+    "tiktok-captcha-solver>=0.9",
+]
+transcribe-mac = ["mlx-whisper>=0.4.3"]
+transcribe = ["faster-whisper>=1.1"]
+
+[project.scripts]
+tiktok-viral = "tiktok_viral.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.9"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.10"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "tiktok_viral"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+markers = ["live: hits TikTok over the network (run with -m live)"]
+addopts = "-m 'not live'"

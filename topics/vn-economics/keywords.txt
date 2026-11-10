@@ -1,0 +1,38 @@
+# Account-search keywords, best first. Measured 2026-11-10: "good" = new channel with median >= 20K views, active.
+# 3 good each
+vàng
+góc nhìn kinh tế
+kiến thức kinh tế
+kinh tế thế giới
+giải thích kinh tế
+# 1-2 good each
+tiền
+đầu tư
+kinh tế
+kinh tế học
+kinh tế vĩ mô
+dòng tiền
+chứng khoán
+chứng chỉ quỹ
+bất động sản
+ngân hàng
+câu chuyện kinh doanh
+câu chuyện thương hiệu
+khởi nghiệp
+biết tuốt
+kiến thức tài chính
+tin kinh tế
+thương hiệu
+thị trường
+sự thật
+giải mã
+# 0 good on 2026-11-10 (mostly sellers, courses or banks); try once more before dropping
+# tài chính cá nhân
+# quản lý tài chính
+# tự do tài chính
+# tiết kiệm
+# cổ phiếu
+# lãi suất
+# thuế
+# mô hình kinh doanh
+# giải mã doanh nghiệp
