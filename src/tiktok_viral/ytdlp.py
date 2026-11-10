@@ -42,12 +42,15 @@ def cached_channel(handle: str, sec_uid: str, posts: int, cache_dir: Path,
     path = cache_dir / f"{handle}.json"
     fresh = path.exists() and time.time() - path.stat().st_mtime < max_age_days * 86_400
     if fresh:
-        entries = [e for e in json.loads(path.read_text()).get("entries") or [] if e]
-        if entries:
-            return entries, True
+        data = json.loads(path.read_text())
+        entries = [e for e in data.get("entries") or [] if e]
+        # A 60-post fetch from discover must not stand in for a 200-post viral fetch.
+        if entries and data.get("requested", len(entries)) >= posts:
+            return entries[:posts], True
     entries = fetch_channel(sec_uid, posts)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"handle": handle, "sec_uid": sec_uid, "entries": entries}, ensure_ascii=False))
+    path.write_text(json.dumps({"handle": handle, "sec_uid": sec_uid, "requested": posts, "entries": entries},
+                               ensure_ascii=False))
     return entries, False
 
 

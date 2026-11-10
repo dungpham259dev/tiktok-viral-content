@@ -16,11 +16,20 @@ def test_to_post_builds_url_and_skips_incomplete_entries() -> None:
 def test_cached_channel_reads_fresh_cache_and_refetches_stale(tmp_path, monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(ytdlp, "fetch_channel", lambda sec, n: calls.append(sec) or [{"id": "new"}])
-    (tmp_path / "h.json").write_text(json.dumps({"entries": [{"id": "old"}, None]}))
+    (tmp_path / "h.json").write_text(json.dumps({"requested": 10, "entries": [{"id": "old"}, None]}))
     assert ytdlp.cached_channel("h", "sec", 10, tmp_path, 1) == ([{"id": "old"}], True)
     assert ytdlp.cached_channel("h", "sec", 10, tmp_path, 0) == ([{"id": "new"}], False)
     assert calls == ["sec"]
     assert json.loads((tmp_path / "h.json").read_text())["entries"] == [{"id": "new"}]
+
+
+def test_cached_channel_refetches_when_the_cache_holds_fewer_posts(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(ytdlp, "fetch_channel", lambda sec, n: [{"id": str(i)} for i in range(n)])
+    ytdlp.cached_channel("h", "sec", 60, tmp_path, 1)
+    entries, cached = ytdlp.cached_channel("h", "sec", 200, tmp_path, 1)
+    assert (len(entries), cached) == (200, False)
+    entries, cached = ytdlp.cached_channel("h", "sec", 60, tmp_path, 1)
+    assert (len(entries), cached) == (60, True)
 
 
 def test_run_ytdlp_raises_on_failure(monkeypatch) -> None:

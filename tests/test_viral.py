@@ -49,7 +49,7 @@ def test_run_viral_include_maybe_and_thresholds(followed, monkeypatch) -> None:
 def test_run_viral_warns_when_a_channel_has_too_few_mature_posts(followed, monkeypatch) -> None:
     monkeypatch.setattr(viral, "cached_channel", lambda *a: (channel_entries()[:5], True))
     md = (viral.run_viral(followed, now=NOW) / "viral.md").read_text()
-    assert "fewer than 10 posts older than 7 days" in md
+    assert "fewer than 10 posts older than 7 days; the channel has only 5 posts" in md
 
 
 def test_run_viral_needs_followed_channels(topic) -> None:

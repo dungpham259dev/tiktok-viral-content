@@ -56,7 +56,8 @@ def run_viral(topic: Topic, days: float = 30, min_views: int = 20_000, min_score
             continue
         found = [p for p in (to_post(e, ch["handle"]) for e in entries) if p]
         if sum(1 for p in found if now - p.timestamp >= 7 * 86_400) < MIN_MATURE:
-            errors.append(f"@{ch['handle']}: fewer than {MIN_MATURE} posts older than 7 days; raise --posts")
+            hint = "raise --posts" if len(entries) >= posts else f"the channel has only {len(entries)} posts"
+            errors.append(f"@{ch['handle']}: fewer than {MIN_MATURE} posts older than 7 days; {hint}")
         scored = [s for s in score_posts(found, now, days) if s.post.views >= min_views and s.score >= min_score]
         rows += [_row(s, ch) for s in scored]
         print(f"@{ch['handle']}: {len(found)} posts, {len(scored)} viral", file=sys.stderr)
