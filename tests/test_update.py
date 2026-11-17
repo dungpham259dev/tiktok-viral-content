@@ -49,3 +49,48 @@ def test_update_outside_a_git_clone_fails_clearly(tmp_path, monkeypatch, capsys)
     monkeypatch.setattr(cli, "REPO", tmp_path)
     assert cli.main(["update"]) == 2
     assert "not a git clone" in capsys.readouterr().err
+
+
+def test_update_on_a_local_branch_merges_the_default_branch(tmp_path, monkeypatch, capsys) -> None:
+    dev, friend = _setup(tmp_path)
+    monkeypatch.setattr(cli, "REPO", friend)
+    _run(friend, "checkout", "-qb", "my-fixes")
+    (friend / "mine.txt").write_text("fix\n")
+    _run(friend, "add", "mine.txt")
+    _run(friend, "commit", "-qm", "my fix")
+    _push(dev, "v2\n", "feat: new data")
+    assert cli.main(["update"]) == 0
+    assert "feat: new data" in capsys.readouterr().out
+    assert (friend / "notes.txt").read_text() == "v2\n" and (friend / "mine.txt").exists()
+    assert cli.main(["update"]) == 0
+    assert "already up to date" in capsys.readouterr().out
+
+
+def test_update_on_a_local_branch_reports_merge_conflicts(tmp_path, monkeypatch, capsys) -> None:
+    dev, friend = _setup(tmp_path)
+    monkeypatch.setattr(cli, "REPO", friend)
+    _run(friend, "checkout", "-qb", "my-fixes")
+    _push(friend, "mine\n", "my edit")
+    _push(dev, "upstream\n", "v2")
+    assert cli.main(["update"]) == 1
+    err = capsys.readouterr().err
+    assert "both change: notes.txt" in err and "commit --no-edit" in err
+
+
+def test_update_on_a_local_branch_with_uncommitted_edits_that_conflict(tmp_path, monkeypatch, capsys) -> None:
+    dev, friend = _setup(tmp_path)
+    monkeypatch.setattr(cli, "REPO", friend)
+    _run(friend, "checkout", "-qb", "my-fixes")
+    _push(dev, "upstream\n", "v2")
+    (friend / "notes.txt").write_text("mine\n")
+    assert cli.main(["update"]) == 1
+    err = capsys.readouterr().err
+    assert "conflict with it in: notes.txt" in err and "stash drop" in err and "commit --no-edit" not in err
+
+
+def test_update_on_a_detached_head_refuses(tmp_path, monkeypatch, capsys) -> None:
+    _, friend = _setup(tmp_path)
+    monkeypatch.setattr(cli, "REPO", friend)
+    _run(friend, "checkout", "-q", "--detach")
+    assert cli.main(["update"]) == 1
+    assert "HEAD is detached" in capsys.readouterr().err

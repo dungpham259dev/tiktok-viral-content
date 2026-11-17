@@ -128,17 +128,48 @@ def cmd_update(_: argparse.Namespace) -> int:
         print(f"error: {REPO} is not a git clone with commits; reinstall with git clone", file=sys.stderr)
         return 2
     before = _git("rev-parse", "HEAD").stdout.strip()
-    pull = _git("pull", "--ff-only", "--autostash")
-    if pull.returncode != 0:
-        print(f"error: git pull failed (local edits to tracked files?):\n{pull.stderr.strip()}\n"
-              f"see `git -C {REPO} status`", file=sys.stderr)
+    if _git("symbolic-ref", "-q", "HEAD").returncode != 0:
+        print(f"error: HEAD is detached; check out a branch first (`git -C {REPO} switch <branch>`)", file=sys.stderr)
         return 1
+    tracked = _git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}").returncode == 0
+    if tracked:
+        step, how = _git("pull", "--ff-only", "--autostash"), "git pull"
+    else:
+        # A local branch of your own (e.g. your fixes) has no upstream: merge the author's default branch into it.
+        if _git("remote", "get-url", "origin").returncode != 0:
+            print("error: this branch has no upstream and there is no `origin` remote to update from", file=sys.stderr)
+            return 1
+        fetch = _git("fetch", "origin")
+        if fetch.returncode != 0:
+            print(f"error: git fetch failed:\n{fetch.stderr.strip()}", file=sys.stderr)
+            return 1
+        default = _git("symbolic-ref", "--short", "refs/remotes/origin/HEAD").stdout.strip()
+        if not default:
+            _git("remote", "set-head", "origin", "--auto")
+            default = _git("symbolic-ref", "--short", "refs/remotes/origin/HEAD").stdout.strip()
+        if not default:
+            print("error: cannot tell origin's default branch", file=sys.stderr)
+            return 1
+        step, how = _git("merge", "--autostash", "--no-edit", default), f"git merge {default}"
     after = _git("rev-parse", "HEAD").stdout.strip()
     conflicts = _git("diff", "--name-only", "--diff-filter=U").stdout.split()
     if conflicts:
-        print(f"updated to {after[:7]}, but your local edits conflict with it in: {', '.join(conflicts)}\n"
-              "the files hold conflict markers; your edits are also kept in `git stash list`. "
-              f"Fix them, then `git -C {REPO} add <file>` and `git -C {REPO} stash drop`", file=sys.stderr)
+        files = ", ".join(conflicts)
+        if _git("rev-parse", "-q", "--verify", "MERGE_HEAD").returncode == 0:
+            # The merge itself stopped: your commits and the author's touch the same lines.
+            print(f"update stopped: your commits and the update both change: {files}\n"
+                  f"the files hold conflict markers. Fix them, then `git -C {REPO} add <file>` and "
+                  f"`git -C {REPO} commit --no-edit` (uncommitted edits come back after the commit), "
+                  f"or undo with `git -C {REPO} merge --abort`", file=sys.stderr)
+        else:
+            # The update landed; putting your uncommitted edits back on top of it conflicted.
+            print(f"updated to {after[:7]}, but your local edits conflict with it in: {files}\n"
+                  "the files hold conflict markers; your edits are also kept in `git stash list`. "
+                  f"Fix them, then `git -C {REPO} add <file>` and `git -C {REPO} stash drop`", file=sys.stderr)
+        return 1
+    if step.returncode != 0:
+        print(f"error: {how} failed:\n{(step.stderr or step.stdout).strip()}\nsee `git -C {REPO} status`",
+              file=sys.stderr)
         return 1
     if before == after:
         print("already up to date")

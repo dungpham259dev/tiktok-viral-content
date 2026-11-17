@@ -43,3 +43,13 @@ def test_clean_text_drops_hallucinations_and_marks_music_only_videos() -> None:
     assert clean_text(hallucinated) == NO_NARRATION
     narration = " ".join(["Vì sao quán cà phê vắng khách vẫn sống được?"] * 3)
     assert clean_text(narration + "\nĐăng ký kênh nhé") == narration
+
+
+def test_a_yt_dlp_timeout_is_a_fetch_error(monkeypatch) -> None:
+    import subprocess
+
+    def hang(*_, **kw):
+        raise subprocess.TimeoutExpired("yt-dlp", kw["timeout"])
+    monkeypatch.setattr(ytdlp.subprocess, "run", hang)
+    with pytest.raises(ytdlp.FetchError, match="timed out after 5 s"):
+        ytdlp.run_ytdlp(["x"], timeout=5)

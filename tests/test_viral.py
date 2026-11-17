@@ -55,3 +55,15 @@ def test_run_viral_warns_when_a_channel_has_too_few_mature_posts(followed, monke
 def test_run_viral_needs_followed_channels(topic) -> None:
     with pytest.raises(ValueError, match="follows no channels"):
         viral.run_viral(topic, now=NOW)
+
+
+def test_pipes_in_titles_do_not_break_the_markdown_table(followed, monkeypatch) -> None:
+    def piped(*_):
+        entries = channel_entries()
+        entries[0]["description"] = "Giá vàng | phần 1 \\| cuối"
+        return entries, True
+    monkeypatch.setattr(viral, "cached_channel", piped)
+    md = (viral.run_viral(followed, now=NOW) / "viral.md").read_text()
+    row = next(line for line in md.splitlines() if "@steady" in line)
+    assert "Giá vàng \\| phần 1 \\\\\\| cuối" in row
+    assert row.count(" | ") == 6

@@ -7,10 +7,13 @@ The baseline is local: the nearest posts in time of the same format that are 7+ 
 age-adjusted. A fixed channel-wide median made every recent post of a fast-growing channel look viral
 (@kinhtegithe: recent median 12.5x its old one). Posts under 2 days are not scored: projecting them inflated
 a 2-hour-old news post 5x.
+When a format has fewer than 10 mature posts, the baseline uses mature posts of both formats: @lichsu360 had 7
+mature long posts, 4 of them under 2.4K views, so its 357K-view long post scored x 150 on a 92K-median channel.
 """
 
 import re
 import statistics
+import unicodedata
 from dataclasses import dataclass
 
 DAY = 86_400.0
@@ -20,10 +23,18 @@ LOCAL_POSTS = 20
 PEER_MIN_AGE = 7
 MIN_AGE = 2
 MIN_BASELINE = 5
+MIN_FORMAT_PEERS = 10
 SHORT_MAX_SECONDS = 180
 RISING_DAYS = 7
 SHARE_LIFT_RANGE = (0.25, 4.0)
-SPONSORED = re.compile(r"sponsor|tàitrợ|tai_?tro|taitro|hoptaccung|#ad\b|#quangcao|partner", re.IGNORECASE)
+# Words are matched with their diacritics: stripped, "tai tro" would also be "tải trò chơi" or "tại trọ". The unaccented
+# form counts only in a caption written without diacritics. "hợp tác cùng" alone is ordinary wording, so only its
+# hashtag form (#hoptaccung...) counts. Hashtags are judged one by one, with diacritics stripped.
+SPONSORED_WORDS = re.compile(r"(?<!non)(?<!un)(?<!not )sponsor|\btài trợ\b|\bpaid partner|\bbrand partner")
+SPONSORED_WORDS_PLAIN = re.compile(r"\btai tro\b")
+# "#ad" and "#ads" may be followed by "_x" ("#ads_tiktok") but not by letters or digits ("#adidas", "#ad1").
+SPONSORED_TAGS = re.compile(r"^#(ads?(?![a-z0-9])|taitro$|partner$)|(?<!non)(?<!un)sponsor|duoctaitro|nhataitro|"
+                            r"taitroboi|hoptaccung|quangcao|paidpartner|brandpartner|partnership")
 
 
 @dataclass(frozen=True)
@@ -61,8 +72,20 @@ def age_fraction(age_days: float) -> float:
     return 1.0
 
 
+def _plain(text: str) -> str:
+    decomposed = unicodedata.normalize("NFD", text.replace("đ", "d").replace("Đ", "D"))
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
+
+
 def is_sponsored(caption: str) -> bool:
-    return bool(SPONSORED.search((caption or "").replace(" ", "")))
+    text = unicodedata.normalize("NFC", caption or "").lower()
+    words = re.sub(r"[_\s]+", " ", re.sub(r"#\S+", " ", text))
+    plain = _plain(text)
+    unaccented = plain == text
+    tags = re.findall(r"#[^\s#]+", plain)
+    # "#quảng_cáo" is one tag written with a joiner: judge it with and without the "_".
+    return bool(SPONSORED_WORDS.search(words) or (unaccented and SPONSORED_WORDS_PLAIN.search(words))
+                or any(SPONSORED_TAGS.search(t) or SPONSORED_TAGS.search(t.replace("_", "")) for t in tags))
 
 
 def _is_short(p: PostStat) -> bool:
@@ -75,14 +98,18 @@ def _clamp(value: float, low: float, high: float) -> float:
 
 def score_posts(posts: list[PostStat], now: float, max_age_days: float) -> list[Scored]:
     out = []
+    usable = [p for p in posts if p.views > 0 and (now - p.timestamp) / DAY <= BASELINE_MAX_AGE]
+    mature = [p for p in usable if (now - p.timestamp) / DAY >= PEER_MIN_AGE]
     for fmt_short in (True, False):
-        same = [p for p in posts if _is_short(p) == fmt_short and p.views > 0
-                and (now - p.timestamp) / DAY <= BASELINE_MAX_AGE]
+        same = [p for p in usable if _is_short(p) == fmt_short]
+        same_mature = [q for q in mature if _is_short(q) == fmt_short]
         for p in same:
             age = (now - p.timestamp) / DAY
             if age > max_age_days or age < MIN_AGE:
                 continue
-            others = [q for q in same if q.video_id != p.video_id and (now - q.timestamp) / DAY >= PEER_MIN_AGE]
+            own = [q for q in same_mature if q.video_id != p.video_id]
+            # A thin format gives a median of a handful of posts, which a few flops can drag to near zero.
+            others = own if len(own) >= MIN_FORMAT_PEERS else [q for q in mature if q.video_id != p.video_id]
             peers = sorted(others, key=lambda q: abs(q.timestamp - p.timestamp))[:LOCAL_POSTS]
             if len(peers) < MIN_BASELINE:
                 continue

@@ -78,6 +78,25 @@ def test_only_recent_posts_are_returned_and_thin_channels_give_nothing() -> None
     ("Đi chợ #ĐượctàitrợbởiGrab", True),
     ("#Shopee #Sponsoredcontent #noidungduoctaitro", True),
     ("Vì sao buffet không lỗ? #kinhte", False),
+    ("#ad mua ngay", True),
+    ("#HợpTácCùngShopee giảm giá", True),
+    ("Hợp tác cùng nhau phát triển", False),
+    ("Video có tài trợ, cảm ơn Grab", True),
+    ("noi dung duoc tai tro boi Grab", True),
+    ("Tải trò chơi miễn phí, ở tại trọ sinh viên", False),
+    ("Not sponsored, just my opinion #nonsponsored", False),
+    ("#adidas #admin #advice", False),
+    ("Nội dung được tài trợ bởi VPBank", True),
+    ("Paid partnership with Grab", True),
+    ("Business partner là gì? #kinhte", False),
+    ("#adidas giảm giá", False),
+    ("Quảng cáo trên TV tốn bao nhiêu tiền?", False),
+    ("Tải trọng 10 tấn, tại trong nhà #khoahoc", False),
+    ("Đặt ai trợ giúp? #tảitrọng", False),
+    ("Mua sắm #partnership #brandpartner", True),
+    ("Review #quảng_cáo", True),
+    ("Đồ uống #ads_tiktok", True),
+    ("#ad1 giảm giá", False),
 ])
 def test_sponsored_captions_are_flagged(caption: str, expected: bool) -> None:
     assert is_sponsored(caption) is expected
@@ -108,3 +127,29 @@ def test_baseline_takes_only_posts_old_enough_to_have_their_views() -> None:
 def test_channel_without_mature_posts_is_skipped() -> None:
     burst = [post(f"b{i}", 1_000, 2 + i * 0.2) for i in range(20)]
     assert score_posts(burst, NOW, max_age_days=30) == []
+
+
+def test_a_thin_format_borrows_the_baseline_of_the_whole_channel() -> None:
+    # 4 long flops among 6 mature long posts used to give a 2K baseline on a channel whose posts get 90K.
+    longs = [post(f"l{i}", v, 20 + i, dur=600) for i, v in enumerate([500, 1_500, 1_800, 2_400, 107_000, 128_000])]
+    shorts = [post(f"s{i}", 90_000, 20 + i) for i in range(20)]
+    scored = score_posts([post("hit", 360_000, 13, dur=600), *longs, *shorts], NOW, max_age_days=30)
+    hit = next(s for s in scored if s.post.video_id == "hit")
+    assert hit.baseline == 90_000
+    assert hit.x == pytest.approx(4.0)
+
+
+def test_a_format_with_enough_mature_posts_keeps_its_own_baseline() -> None:
+    longs = [post(f"l{i}", 5_000, 20 + i, dur=600) for i in range(10)]
+    shorts = [post(f"s{i}", 90_000, 20 + i) for i in range(20)]
+    scored = score_posts([post("hit", 50_000, 13, dur=600), *longs, *shorts], NOW, max_age_days=30)
+    hit = next(s for s in scored if s.post.video_id == "hit")
+    assert hit.baseline == 5_000
+
+
+@pytest.mark.parametrize("longs,expected", [(10, 5_000), (9, 90_000)])
+def test_the_format_fallback_counts_peers_without_the_post_itself(longs: int, expected: int) -> None:
+    mature_longs = [post(f"l{i}", 5_000, 20 + i, dur=600) for i in range(longs)]
+    shorts = [post(f"s{i}", 90_000, 20 + i) for i in range(20)]
+    scored = score_posts([post("hit", 50_000, 20.5, dur=600), *mature_longs, *shorts], NOW, max_age_days=30)
+    assert next(s for s in scored if s.post.video_id == "hit").baseline == expected
