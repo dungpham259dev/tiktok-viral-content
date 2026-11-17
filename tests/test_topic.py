@@ -66,3 +66,9 @@ def test_record_screen_overwrites_by_channel_and_tracks_rejects(topic) -> None:
     assert list(topic.screened()) == ["sec-a", "sec-b"]
     with pytest.raises(TopicError):
         topic.record_screen([verdict("c", "keep")])
+
+
+def test_csv_writes_leave_no_temp_file_behind(topic) -> None:
+    topic.add_channels([{"handle": "a", "sec_uid": "sec-a", "tier": "watch"}])
+    assert sorted(p.name for p in topic.path.iterdir() if p.name.startswith(".")) == []
+    assert "sec-a" in (topic.path / "channels.csv").read_text()

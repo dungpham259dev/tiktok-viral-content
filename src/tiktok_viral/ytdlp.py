@@ -23,7 +23,10 @@ class FetchError(RuntimeError):
 
 
 def run_ytdlp(args: list[str], timeout: int = TIMEOUT_S) -> str:
-    proc = subprocess.run(YTDLP + args, capture_output=True, text=True, timeout=timeout)
+    try:
+        proc = subprocess.run(YTDLP + args, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise FetchError(f"yt-dlp timed out after {timeout} s") from exc
     if proc.returncode != 0:
         raise FetchError(f"yt-dlp failed: {proc.stderr.strip()[-240:]}")
     return proc.stdout

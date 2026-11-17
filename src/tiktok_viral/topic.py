@@ -57,10 +57,16 @@ def _read_csv(path: Path) -> list[dict]:
 
 
 def _write_csv(path: Path, fields: list[str], rows: list[dict]) -> None:
-    with path.open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore", lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
+    """Write next to the target, then rename: a crash mid-write leaves the old file whole."""
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        with tmp.open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore", lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 @dataclass(frozen=True)

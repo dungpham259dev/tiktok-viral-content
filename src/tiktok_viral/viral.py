@@ -1,7 +1,6 @@
 """Recent viral videos from the channels a topic follows, ranked by viral score (see score.py). No browser."""
 
 import csv
-import subprocess
 import sys
 import time
 from datetime import UTC, datetime
@@ -27,6 +26,10 @@ def _row(s: Scored, channel: dict) -> dict:
             "channel_baseline": s.baseline, "title": p.caption[:200], "url": p.url}
 
 
+def _cell(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("|", "\\|")
+
+
 def _markdown(topic: Topic, rows: list[dict], days: float, errors: list[str]) -> str:
     lines = [f"# Recent viral TikTok videos: {topic.name} ({datetime.now():%Y-%m-%d})", "",
              f"Posts from the last {days:g} days. score = age-adjusted x (views over the channel's usual) times "
@@ -35,7 +38,7 @@ def _markdown(topic: Topic, rows: list[dict], days: float, errors: list[str]) ->
     for r in rows:
         flags = " ".join(f for f, on in (("RISING", r["rising"]), ("AD", r["sponsored"])) if on)
         lines.append(f"| {r['score']} | {r['x_adj']} | {r['age_days']}d | {r['views']:,} | @{r['channel']} | "
-                     f"{flags} {r['title'][:80]} | {r['url']} |")
+                     f"{flags} {_cell(r['title'][:80])} | {r['url']} |")
     if errors:
         lines += ["", "## Problems", ""] + [f"- {e}" for e in errors]
     return "\n".join(lines) + "\n"
@@ -51,7 +54,7 @@ def run_viral(topic: Topic, days: float = 30, min_views: int = 20_000, min_score
     for ch in channels:
         try:
             entries, cached = cached_channel(ch["handle"], ch["sec_uid"], posts, topic.cache_dir, cache_days)
-        except (FetchError, subprocess.TimeoutExpired, ValueError) as exc:
+        except (FetchError, ValueError) as exc:
             errors.append(f"@{ch['handle']}: {str(exc)[:160]}")
             continue
         found = [p for p in (to_post(e, ch["handle"]) for e in entries) if p]

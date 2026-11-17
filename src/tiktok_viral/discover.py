@@ -8,7 +8,6 @@ run ends with screen_input.json for an agent or a person to judge (see the skill
 
 import csv
 import json
-import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -51,7 +50,7 @@ def mined_tags(topic: Topic, top: int, posts: int, cache_days: float) -> list[st
     for ch in topic.channels():
         try:
             entries, _ = cached_channel(ch["handle"], ch["sec_uid"], posts, topic.cache_dir, cache_days)
-        except (FetchError, subprocess.TimeoutExpired) as exc:
+        except FetchError as exc:
             print(f"@{ch['handle']}: {exc}", file=sys.stderr)
             continue
         captions[ch["handle"]] = [e.get("description") or "" for e in entries]
@@ -68,7 +67,7 @@ def profile_authors(authors: list[Author], topic: Topic, opts: DiscoverOptions) 
     for a in authors:
         try:
             entries, cached = cached_channel(a.handle, a.sec_uid, opts.posts, topic.cache_dir, opts.cache_days)
-        except (FetchError, subprocess.TimeoutExpired, ValueError) as exc:
+        except (FetchError, ValueError) as exc:
             errors.append(f"@{a.handle}: {str(exc)[:160]}")
             continue
         stats[a.handle] = build_profile(entries, a.handle)
@@ -112,6 +111,8 @@ def run_discover(topic: Topic, tags: list[str], queries: list[str], keywords: li
         raise ValueError("nothing to search: give tags, queries or keywords")
     out = topic.run_dir("discover", datetime.now().strftime("%Y%m%d-%H%M"))
     got = collect(page_urls(tags, queries, keywords), opts.scrolls, opts.headless, opts.captcha_wait, opts.stealth)
+    # The browser pass takes the longest and cannot be replayed from cache; keep it before profiling starts.
+    (out / "collected.json").write_text(json.dumps(asdict(got), ensure_ascii=False), encoding="utf-8")
     known, rejected = topic.known_refs(), topic.rejected_refs()
     keep = None if opts.any_language else language_authors(got.items, topic.language, LANGUAGE_SHARE)
     pool = [i for i in got.items if keep is None or i.sec_uid in keep]

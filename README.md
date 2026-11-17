@@ -29,10 +29,11 @@ public endpoints through yt-dlp, with no browser, login or captcha.
 
 - **x**: the post's views over the median of the 20 nearest same-format posts (short <= 180 s, or long) that are at
   least 7 days old. Using nearby posts, not a channel-wide median, keeps a fast-growing channel from making every new
-  post look viral.
-- **x_adj**: x divided by how much of its views a post that age usually has: 20% at day 1, 49% at day 2, 62% at days
-  2-7, 90% at days 7-14. Measured on 21,530 posts from 411 Vietnamese channels. Posts under 2 days are not scored;
-  2-7 days are flagged RISING.
+  post look viral. A format with fewer than 10 such posts uses the nearest posts of both formats, so a few
+  flops cannot shrink the baseline.
+- **x_adj**: x divided by how much of its views a post that age usually has: 20% at day 1, 49% at day 2, 61% at days
+  2-4, 64% at days 4-7, 90% at days 7-14. Measured on 21,530 posts from 411 Vietnamese channels. Posts under 2 days
+  are not scored; 2-7 days are flagged RISING.
 - **share_lift**: the post's share rate over the channel's usual (clamped 0.25-4). Posts that beat their channel 3x
   had 1.56x the usual share rate; saves barely moved, so they are reported but not scored.
 - Captions with sponsorship markers are flagged AD.
