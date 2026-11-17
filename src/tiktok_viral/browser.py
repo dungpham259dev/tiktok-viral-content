@@ -113,25 +113,39 @@ def collect(pages: list[tuple[str, str]], scrolls: int = 6, headless: bool = Fal
         ctx = _open_context(pw, headless, stealth)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.on("response", on_response)
+        wait = captcha_wait if (os.environ.get(SOLVER_KEY) or not headless) else 0
         for source, url in pages:
             current["source"] = source
             before = len(out.items) + len(out.accounts)
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=45_000)
-                page.wait_for_timeout(SETTLE_MS)
-                had_captcha = page.locator(CAPTCHA).count() > 0
-                if not _wait_captcha(page, captcha_wait if (os.environ.get(SOLVER_KEY) or not headless) else 0):
-                    out.problems.append(f"{source}: captcha not solved, page skipped")
-                    continue
-                if had_captcha:
-                    page.reload(wait_until="domcontentloaded")
+                # The captcha can show up after the first check (seen at 6-10 s), so look again after scrolling and
+                # give the page one more pass once it is solved.
+                for attempt in (1, 2):
+                    page.goto(url, wait_until="domcontentloaded", timeout=45_000)
                     page.wait_for_timeout(SETTLE_MS)
-                for _ in range(0 if source.startswith("user:") else scrolls):
-                    page.mouse.wheel(0, 3000)
-                    page.wait_for_timeout(SCROLL_MS)
-                if source.startswith("user:") and "Something went wrong" in page.inner_text("body"):
+                    if page.locator(CAPTCHA).count():
+                        if not _wait_captcha(page, wait):
+                            break
+                        page.reload(wait_until="domcontentloaded")
+                        page.wait_for_timeout(SETTLE_MS)
+                    if source.startswith("user:"):
+                        page.wait_for_timeout(2 * SCROLL_MS)  # no scrolling here, but a captcha can still be late
+                    for _ in range(0 if source.startswith("user:") else scrolls):
+                        page.mouse.wheel(0, 3000)
+                        page.wait_for_timeout(SCROLL_MS)
+                    if len(out.items) + len(out.accounts) > before or not page.locator(CAPTCHA).count():
+                        break
+                    if attempt == 1 and not _wait_captcha(page, wait):
+                        break
+                if page.locator(CAPTCHA).count():
+                    partial = len(out.items) + len(out.accounts) > before
+                    what = "appeared, results partial" if partial else "not solved, page skipped"
+                    out.problems.append(f"{source}: captcha {what}")
+                elif source.startswith("user:") and "Something went wrong" in page.inner_text("body"):
                     hint = "" if stealth else " (account search needs --stealth)"
                     out.problems.append(f"{source}: account search refused{hint}")
+                elif len(out.items) + len(out.accounts) == before:
+                    out.problems.append(f"{source}: page loaded but returned no results")
             except PwError as exc:
                 out.problems.append(f"{source}: {str(exc)[:120]}")
             print(f"{source}: {len(out.items) + len(out.accounts) - before} results", file=sys.stderr)
